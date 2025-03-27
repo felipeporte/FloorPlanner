@@ -35,6 +35,7 @@ document.getElementById('deleteBtn').addEventListener('click', () => setMode('de
 document.getElementById('resetBtn').addEventListener('click', resetScene);
 
 // Eventos
+setMode('draw');
 window.addEventListener('click', handleClick);
 window.addEventListener('mousemove', handleMouseMove);
 
@@ -115,8 +116,9 @@ function getClickedWall(event) {
 function resetScene() {
   points.length = 0;
   clearWalls(scene);
-  hidePreviewWall(scene);
   clearLabels();
+  hidePreviewWall(scene);
+
   scene.traverse((obj) => {
     if (obj.isMesh && obj.geometry.type === 'CircleGeometry') {
       scene.remove(obj);
@@ -135,11 +137,10 @@ function resetScene() {
   window.addEventListener('mousemove', handleMouseMove);
 }
 
-// Render loop
+// Loop de renderizado
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
-  updateLabels(camera); // ← esto actualiza la posición de los labels
+  updateLabels(camera);
 }
 animate();
-

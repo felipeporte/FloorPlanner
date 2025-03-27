@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createDistanceLabel } from './labelManager.js';
 
 const walls = [];
-createDistanceLabel(from, to);
+
 export function drawWall(from, to, scene) {
   const wallThickness = 10;
   const direction = new THREE.Vector3().subVectors(to, from);
@@ -19,6 +19,8 @@ export function drawWall(from, to, scene) {
 
   scene.add(wall);
   walls.push(wall);
+
+  createDistanceLabel(from, to); // 👈 Mostrar etiqueta
   return wall;
 }
 
