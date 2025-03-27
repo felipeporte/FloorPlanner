@@ -2,9 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FloorPlanner</title>
-  <link rel="stylesheet" href="/src/style.css" />
+  <title>FloorPlanner 2D/3D</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    #toolbar {
+      position: absolute; top: 10px; left: 10px; z-index: 1;
+      background: rgba(255,255,255,0.8); padding: 10px; border-radius: 8px;
+    }
+    button { margin: 4px; }
+  </style>
 </head>
 <body>
   <div id="toolbar">
@@ -12,8 +18,9 @@
     <button id="moveBtn">🔧 Mover</button>
     <button id="deleteBtn">🗑 Eliminar</button>
     <button id="resetBtn">🔄 Reset</button>
+    <button id="mode2dBtn">📐 Modo 2D</button>
+    <button id="mode3dBtn">🏗️ Modo 3D</button>
   </div>
-  
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
