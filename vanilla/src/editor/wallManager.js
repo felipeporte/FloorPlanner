@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { createDistanceLabel } from './labelManager.js';
 
 const walls = [];
-
+createDistanceLabel(from, to);
 export function drawWall(from, to, scene) {
   const wallThickness = 10;
   const direction = new THREE.Vector3().subVectors(to, from);

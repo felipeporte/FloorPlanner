@@ -3,6 +3,7 @@ import { setMode, getMode } from './editor/modeManager.js';
 import { drawWall, getWalls, removeWall, clearWalls } from './editor/wallManager.js';
 import { updatePreviewWall, hidePreviewWall } from './editor/preview.js';
 import { drawFilledRoom } from './editor/roomManager.js';
+import { updateLabels, clearLabels } from './editor/labelManager.js';
 
 // Escena y cámara
 const scene = new THREE.Scene();
@@ -115,7 +116,7 @@ function resetScene() {
   points.length = 0;
   clearWalls(scene);
   hidePreviewWall(scene);
-
+  clearLabels();
   scene.traverse((obj) => {
     if (obj.isMesh && obj.geometry.type === 'CircleGeometry') {
       scene.remove(obj);
@@ -138,5 +139,7 @@ function resetScene() {
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
+  updateLabels(camera); // ← esto actualiza la posición de los labels
 }
 animate();
+
