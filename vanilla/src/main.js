@@ -12,10 +12,10 @@ camera.position.z = 10;
 // Renderizador
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0xffffff); // fondo blanco
+renderer.setClearColor(0xffffff);
 document.body.appendChild(renderer.domElement);
 
-// Grilla visual de fondo
+// Grilla
 const gridSize = 2000;
 const gridDivisions = 200;
 const grid = new THREE.GridHelper(gridSize, gridDivisions, 0xcccccc, 0xeeeeee);
@@ -30,7 +30,10 @@ const distanceLabels = [];
 const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 const pointGeometry = new THREE.CircleGeometry(5, 16);
 
-// Función: convertir posición 3D a pantalla
+let previewWall = null;
+let isPreviewing = false;
+
+// Utilidad: convertir posición 3D a pantalla
 function toScreenPosition(vec, camera) {
   const vector = vec.clone().project(camera);
   return {
@@ -39,7 +42,7 @@ function toScreenPosition(vec, camera) {
   };
 }
 
-// Función: mostrar etiqueta de distancia
+// Etiqueta de distancia
 function showDistanceLabel(a, b) {
   const midPoint = new THREE.Vector3(
     (a.x + b.x) / 2,
@@ -65,10 +68,9 @@ function showDistanceLabel(a, b) {
   distanceLabels.push({ label, pointA: a, pointB: b });
 }
 
-// Función: dibujar pared como rectángulo
+// Dibujar pared fija
 function drawWall(from, to) {
   const wallThickness = 10;
-
   const direction = new THREE.Vector3().subVectors(to, from);
   const length = direction.length();
   const angle = Math.atan2(direction.y, direction.x);
@@ -82,11 +84,35 @@ function drawWall(from, to) {
   wall.rotation.z = angle;
 
   scene.add(wall);
-
   showDistanceLabel(from, to);
 }
 
-// Evento click
+// Previsualización pared fantasma
+function updatePreviewWall(from, to) {
+  const wallThickness = 10;
+  const direction = new THREE.Vector3().subVectors(to, from);
+  const length = direction.length();
+  const angle = Math.atan2(direction.y, direction.x);
+  const center = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5);
+
+  if (!previewWall) {
+    const geometry = new THREE.PlaneGeometry(1, wallThickness);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x888888,
+      transparent: true,
+      opacity: 0.4,
+    });
+    previewWall = new THREE.Mesh(geometry, material);
+    scene.add(previewWall);
+  }
+
+  previewWall.scale.x = length;
+  previewWall.position.copy(center);
+  previewWall.rotation.z = angle;
+  isPreviewing = true;
+}
+
+// Manejar clicks
 window.addEventListener('click', (e) => {
   if (e.target.tagName === 'BUTTON') return;
 
@@ -96,27 +122,39 @@ window.addEventListener('click', (e) => {
   );
   const pos = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
 
-  // Snap a cuadrícula
+  // Snap
   const snapSize = 20;
   const snappedX = Math.round(pos.x / snapSize) * snapSize;
   const snappedY = Math.round(pos.y / snapSize) * snapSize;
   const newPoint = new THREE.Vector3(snappedX, snappedY, 0);
 
+  // Cierre de cuarto
   if (points.length > 2) {
     const first = points[0];
     const dist = first.distanceTo(newPoint);
     if (dist < 15) {
       drawWall(points[points.length - 1], first);
+
+      // Eliminar preview wall
+      if (previewWall) {
+        scene.remove(previewWall);
+        previewWall.geometry.dispose();
+        previewWall.material.dispose();
+        previewWall = null;
+        isPreviewing = false;
+      }
+
       return;
     }
   }
 
-  // Punto visual
+  // Dibujar punto
   const mesh = new THREE.Mesh(pointGeometry, pointMaterial);
   mesh.position.copy(newPoint);
   scene.add(mesh);
   pointMeshes.push(mesh);
 
+  // Dibujar pared si ya hay al menos un punto
   if (points.length > 0) {
     const last = points[points.length - 1];
     drawWall(last, newPoint);
@@ -125,12 +163,30 @@ window.addEventListener('click', (e) => {
   points.push(newPoint);
 });
 
-// Animación
+// Movimiento de mouse para previsualización
+window.addEventListener('mousemove', (e) => {
+  if (points.length === 0) return;
+
+  const mouse = new THREE.Vector2(
+    (e.clientX / window.innerWidth) * 2 - 1,
+    -(e.clientY / window.innerHeight) * 2 + 1
+  );
+  const pos = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
+
+  const snapSize = 20;
+  const snappedX = Math.round(pos.x / snapSize) * snapSize;
+  const snappedY = Math.round(pos.y / snapSize) * snapSize;
+  const snappedPoint = new THREE.Vector3(snappedX, snappedY, 0);
+
+  const lastPoint = points[points.length - 1];
+  updatePreviewWall(lastPoint, snappedPoint);
+});
+
+// Animación + update etiquetas + preview
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
 
-  // Actualizar etiquetas
   distanceLabels.forEach(({ label, pointA, pointB }) => {
     const mid = new THREE.Vector3(
       (pointA.x + pointB.x) / 2,
@@ -141,10 +197,18 @@ function animate() {
     label.style.left = `${screenPos.x}px`;
     label.style.top = `${screenPos.y}px`;
   });
+
+  // Mostrar u ocultar preview wall
+  if (!isPreviewing && previewWall) {
+    previewWall.visible = false;
+  } else if (previewWall) {
+    previewWall.visible = true;
+  }
+  isPreviewing = false;
 }
 animate();
 
-// Función reset
+// Reset completo
 function resetPlano() {
   // Puntos
   pointMeshes.forEach(mesh => {
@@ -163,7 +227,7 @@ function resetPlano() {
   });
   distanceLabels.length = 0;
 
-  // Paredes (Planes)
+  // Paredes
   const toRemove = [];
   scene.traverse(obj => {
     if (obj.type === 'Mesh' && obj.geometry.type === 'PlaneGeometry') {
@@ -175,6 +239,15 @@ function resetPlano() {
     mesh.geometry.dispose();
     mesh.material.dispose();
   });
+
+  // Preview wall
+  if (previewWall) {
+    scene.remove(previewWall);
+    previewWall.geometry.dispose();
+    previewWall.material.dispose();
+    previewWall = null;
+    isPreviewing = false;
+  }
 }
 
 // Botón reset
