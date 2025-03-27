@@ -29,15 +29,27 @@ const points = [];
 const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 const pointGeometry = new THREE.CircleGeometry(5, 16);
 
+// Modo mover
+let selectedWall = null;
+let isDragging = false;
+
 // Botones
 document.getElementById('drawBtn').addEventListener('click', () => setMode('draw'));
 document.getElementById('deleteBtn').addEventListener('click', () => setMode('delete'));
+document.getElementById('moveBtn').addEventListener('click', () => setMode('move'));
 document.getElementById('resetBtn').addEventListener('click', resetScene);
 
 // Eventos
 setMode('draw');
 window.addEventListener('click', handleClick);
 window.addEventListener('mousemove', handleMouseMove);
+window.addEventListener('pointermove', handlePointerMove);
+window.addEventListener('pointerup', () => {
+  if (getMode() === 'move') {
+    isDragging = false;
+    selectedWall = null;
+  }
+});
 
 // FUNCIONES
 
@@ -49,7 +61,6 @@ function handleClick(e) {
   if (mode === 'draw') {
     const point = getSnappedMousePosition(e);
 
-    // Cierre del cuarto
     if (points.length >= 3 && point.distanceTo(points[0]) < 15) {
       drawWall(points[points.length - 1], points[0], scene);
       drawFilledRoom(points, scene);
@@ -72,6 +83,14 @@ function handleClick(e) {
     const wall = getClickedWall(e);
     if (wall) removeWall(wall, scene);
   }
+
+  if (mode === 'move') {
+    const wall = getClickedWall(e);
+    if (wall) {
+      selectedWall = wall;
+      isDragging = true;
+    }
+  }
 }
 
 function handleMouseMove(e) {
@@ -81,6 +100,12 @@ function handleMouseMove(e) {
   const snapPoint = getSnappedMousePosition(e);
   const lastPoint = points[points.length - 1];
   updatePreviewWall(lastPoint, snapPoint, scene);
+}
+
+function handlePointerMove(e) {
+  if (getMode() !== 'move' || !isDragging || !selectedWall) return;
+  const newPos = getSnappedMousePosition(e);
+  selectedWall.position.copy(newPos);
 }
 
 function getSnappedMousePosition(event) {
