@@ -33,14 +33,15 @@ export class FloorPlanner2D {
       const from = this.points[len - 2];
       const to = this.points[len - 1];
 
-      // Calcular la dirección y longitud de la p
-      
+      // Calcular la dirección y longitud de la pared
+      const direction = new THREE.Vector3().subVectors(to, from);
+      const length = direction.length();
       const angle = Math.atan2(direction.y, direction.x);
 
       // Crear geometría de la pared (rectángulo)
       const wallHeight = 10; // Altura de la pared en 2D
       const geometry = new THREE.PlaneGeometry(length, wallHeight);
-
+    
       // Materiales para el borde y el fondo
       const material = new THREE.MeshBasicMaterial({ color: 0xd3d3d3 }); // Fondo gris claro
       const borderMaterial = new THREE.LineBasicMaterial({ color: 0x555555 }); // Borde gris oscuro
