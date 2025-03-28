@@ -1,26 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>FloorPlanner 2D/3D</title>
+  <meta charset="UTF-8">
+  <title>FloorPlanner</title>
   <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    body { margin: 0; overflow: hidden; }
     #toolbar {
-      position: absolute; top: 10px; left: 10px; z-index: 1;
-      background: rgba(255,255,255,0.8); padding: 10px; border-radius: 8px;
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      background: rgba(255,255,255,0.9); padding: 8px; border-radius: 6px;
     }
-    button { margin: 4px; }
+    canvas {
+      position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+      display: none;
+    }
+    #canvas2D { display: block; }
   </style>
 </head>
 <body>
   <div id="toolbar">
     <button id="drawBtn">🧱 Dibujar</button>
-    <button id="moveBtn">🔧 Mover</button>
-    <button id="deleteBtn">🗑 Eliminar</button>
     <button id="resetBtn">🔄 Reset</button>
     <button id="mode2dBtn">📐 Modo 2D</button>
     <button id="mode3dBtn">🏗️ Modo 3D</button>
+    <select id="unitSelect">
+      <option value="1,cm">cm</option>
+      <option value="0.01,m">m</option>
+      <option value="0.3937,in">in</option>
+    </select>
   </div>
+  <canvas id="canvas2D"></canvas>
+  <canvas id="canvas3D"></canvas>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

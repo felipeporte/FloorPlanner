@@ -1,181 +1,119 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FloorPlanner2D } from './FloorPlanner2D.js';
+import { build3D } from './FloorPlanner3D.js';
+import { setMode } from './modeManager.js';
+import { clearSegments } from './wallData.js';
 
-import { setMode, getMode } from './editor/modeManager.js';
-import { drawWall, getWalls, removeWall, clearWalls } from './editor/wallManager.js';
-import { addWallSegment, getWallSegments, clearWallSegments } from './editor/wallData.js';
+// Canvas y renderers
+const canvas2D = document.getElementById('canvas2D');
+const canvas3D = document.getElementById('canvas3D');
 
-// Escena
-const scene = new THREE.Scene();
+const renderer2D = new THREE.WebGLRenderer({ canvas: canvas2D, antialias: true });
+renderer2D.setSize(window.innerWidth, window.innerHeight);
+renderer2D.setClearColor(0xffffff);
+
+const renderer3D = new THREE.WebGLRenderer({ canvas: canvas3D, antialias: true });
+renderer3D.setSize(window.innerWidth, window.innerHeight);
+renderer3D.setClearColor(0xffffff);
+
+// Escenas
+const scene2D = new THREE.Scene();
+const scene3D = new THREE.Scene();
 
 // Cámaras
-const orthoCamera = new THREE.OrthographicCamera(
+const camera2D = new THREE.OrthographicCamera(
   window.innerWidth / -2, window.innerWidth / 2,
   window.innerHeight / 2, window.innerHeight / -2,
-  1, 2000
+  1, 1000
 );
-orthoCamera.position.z = 10;
+camera2D.position.z = 10;
 
-const perspCamera = new THREE.PerspectiveCamera(
+const camera3D = new THREE.PerspectiveCamera(
   60, window.innerWidth / window.innerHeight, 1, 5000
 );
-perspCamera.position.set(500, 500, 500);
-perspCamera.lookAt(0, 0, 0);
+camera3D.position.set(400, 400, 400);
+camera3D.lookAt(0, 0, 0);
 
-// Control de cámara
-let currentCamera = orthoCamera;
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0xffffff);
-document.body.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(perspCamera, renderer.domElement);
+// Controls 3D
+const controls = new OrbitControls(camera3D, canvas3D);
 controls.enableDamping = true;
-controls.enableRotate = false; // solo en modo 3D
-
-// Grilla
-const grid = new THREE.GridHelper(2000, 200, 0xcccccc, 0xeeeeee);
-grid.rotation.x = Math.PI / 2;
-scene.add(grid);
+controls.minPolarAngle = Math.PI / 4;
+controls.maxPolarAngle = Math.PI / 2.1;
+controls.target.set(0, 0, 0);
+controls.update();
 
 // Estado
-const points = [];
-const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-const pointGeometry = new THREE.CircleGeometry(5, 16);
+let currentMode = '2d';
+const planner2D = new FloorPlanner2D(scene2D);
 
-// Botones
+// Grillas
+const grid2D = new THREE.GridHelper(2000, 200, 0xcccccc, 0xeeeeee);
+grid2D.rotation.x = Math.PI / 2;
+scene2D.add(grid2D);
+
+const grid3D = new THREE.GridHelper(2000, 200, 0xcccccc, 0xeeeeee);
+scene3D.add(grid3D);
+
+// Funciones de modo
+function switchTo2D() {
+  canvas2D.style.display = 'block';
+  canvas3D.style.display = 'none';
+  currentMode = '2d';
+}
+
+function switchTo3D() {
+  canvas2D.style.display = 'none';
+  canvas3D.style.display = 'block';
+  currentMode = '3d';
+
+  scene3D.children
+    .filter(obj => obj.isMesh && obj.geometry.type === 'BoxGeometry')
+    .forEach(obj => {
+      scene3D.remove(obj);
+      obj.geometry.dispose();
+      obj.material.dispose();
+    });
+
+  build3D(scene3D);
+}
+
+// Listeners
+document.getElementById('mode2dBtn').addEventListener('click', switchTo2D);
+document.getElementById('mode3dBtn').addEventListener('click', switchTo3D);
 document.getElementById('drawBtn').addEventListener('click', () => setMode('draw'));
-document.getElementById('moveBtn').addEventListener('click', () => setMode('move'));
-document.getElementById('deleteBtn').addEventListener('click', () => setMode('delete'));
-document.getElementById('resetBtn').addEventListener('click', resetScene);
-document.getElementById('mode2dBtn').addEventListener('click', enter2DMode);
-document.getElementById('mode3dBtn').addEventListener('click', enter3DMode);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  planner2D.clear();
+  clearSegments();
+});
 
-// Eventos 2D
-setMode('draw');
-window.addEventListener('click', handleClick);
-
-// FUNCIONES
-
-function handleClick(e) {
+// Clic para agregar puntos en 2D
+window.addEventListener('click', (e) => {
+  if (currentMode !== '2d') return;
   if (e.target.tagName === 'BUTTON') return;
-  const mode = getMode();
 
   const mouse = new THREE.Vector2(
     (e.clientX / window.innerWidth) * 2 - 1,
     -(e.clientY / window.innerHeight) * 2 + 1
   );
-  const pos = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(currentCamera);
-  const snapped = snapPoint(pos);
+  const pos = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera2D);
+  planner2D.addPoint(pos);
+});
 
-  if (mode === 'draw') {
-    if (points.length >= 3 && snapped.distanceTo(points[0]) < 15) {
-      drawWall(points[points.length - 1], points[0], scene);
-      addWallSegment(points[points.length - 1], points[0]);
-      return;
-    }
-
-    const mesh = new THREE.Mesh(pointGeometry, pointMaterial);
-    mesh.position.copy(snapped);
-    scene.add(mesh);
-    points.push(snapped);
-
-    if (points.length > 1) {
-      drawWall(points[points.length - 2], snapped, scene);
-      addWallSegment(points[points.length - 2], snapped);
-    }
-  }
-
-  if (mode === 'delete') {
-    const wall = getClickedWall(e);
-    if (wall) removeWall(wall, scene);
-  }
-
-  // Modo mover puede agregarse aquí después
-}
-
-function getClickedWall(event) {
-  const mouse = new THREE.Vector2(
-    (event.clientX / window.innerWidth) * 2 - 1,
-    -(event.clientY / window.innerHeight) * 2 + 1
-  );
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, currentCamera);
-  const intersects = raycaster.intersectObjects(getWalls());
-  return intersects.length > 0 ? intersects[0].object : null;
-}
-
-function snapPoint(vec3) {
-  const snap = 20;
-  const x = Math.round(vec3.x / snap) * snap;
-  const y = Math.round(vec3.y / snap) * snap;
-  return new THREE.Vector3(x, y, 0);
-}
-
-function resetScene() {
-  points.length = 0;
-  clearWalls(scene);
-  clearWallSegments();
-
-  scene.traverse(obj => {
-    if (obj.isMesh && obj.geometry.type === 'CircleGeometry') {
-      scene.remove(obj);
-      obj.geometry.dispose();
-      obj.material.dispose();
-    }
-    if (obj.isMesh && obj.geometry.type === 'BoxGeometry') {
-      scene.remove(obj);
-      obj.geometry.dispose();
-      obj.material.dispose();
-    }
-  });
-
-  setMode('draw');
-  currentCamera = orthoCamera;
-  controls.enableRotate = false;
-  controls.object = perspCamera;
-}
-
-function enter3DMode() {
-  clearWalls(scene);
-
-  const wallHeight = 250;
-  getWallSegments().forEach(({ from, to }) => {
-    const direction = new THREE.Vector3().subVectors(to, from);
-    const length = direction.length();
-    const angle = Math.atan2(direction.y, direction.x);
-    const center = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5);
-
-    const geometry = new THREE.BoxGeometry(length, 10, wallHeight);
-    const material = new THREE.MeshBasicMaterial({ color: 0x999999 });
-    const wall = new THREE.Mesh(geometry, material);
-    wall.position.set(center.x, center.y, wallHeight / 2);
-    wall.rotation.z = angle;
-    scene.add(wall);
-  });
-
-  currentCamera = perspCamera;
-  controls.enableRotate = true;
-}
-
-function enter2DMode() {
-  // eliminar paredes 3D
-  scene.children
-    .filter(obj => obj.isMesh && obj.geometry.type === 'BoxGeometry')
-    .forEach(obj => {
-      scene.remove(obj);
-      obj.geometry.dispose();
-      obj.material.dispose();
-    });
-
-  currentCamera = orthoCamera;
-  controls.enableRotate = false;
-}
-
-// RENDER LOOP
+// Render loop
 function animate() {
   requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, currentCamera);
+
+  if (currentMode === '2d') {
+    renderer2D.render(scene2D, camera2D);
+  } else {
+    controls.update();
+    renderer3D.render(scene3D, camera3D);
+  }
 }
 animate();
+document.getElementById('unitSelect').addEventListener('change', (e) => {
+    const [factor, label] = e.target.value.split(',');
+    planner2D.labels.setUnits(parseFloat(factor), label);
+  });
+  
